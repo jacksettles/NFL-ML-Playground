@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[2]:
 
 
 import pandas as pd
@@ -21,18 +21,19 @@ import torchvision.datasets as dsets
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import lr_scheduler
+from math import ceil
 import os
 
 
 # # Read in data and preprocess it
 
-# In[2]:
+# In[3]:
 
 
 NFL = pd.read_csv(r"NFL Play by Play 2009-2018 (v5).csv", low_memory=False)
 
 
-# In[3]:
+# In[4]:
 
 
 ''' Filter rows '''
@@ -40,7 +41,7 @@ NFL = NFL[(NFL.down.isin([1, 2, 3, 4])) & ((NFL.play_type == 'run') | (NFL.play_
           & (NFL.incomplete_pass == 0)]
 
 
-# In[4]:
+# In[5]:
 
 
 NFL = NFL[['game_id', 'posteam', 'posteam_type', 'defteam', 'game_seconds_remaining', 'yardline_100', 'down', 'ydstogo', 'yards_gained', 'score_differential',
@@ -51,7 +52,7 @@ NFL['game_seconds_remaining'] = NFL['game_seconds_remaining'].astype(int)
 NFL['yards_gained'] = NFL['yards_gained'].astype(int)
 
 
-# In[5]:
+# In[6]:
 
 
 def get_play(play):
@@ -66,7 +67,7 @@ def get_play(play):
             return "Run " + run_location.capitalize() + " " + run_gap.capitalize()
 
 
-# In[6]:
+# In[7]:
 
 
 # Sit is situation
@@ -90,21 +91,21 @@ def play_success(sit):
             return 0
 
 
-# In[7]:
+# In[8]:
 
 
 ''' Turn unknown values into "unknown" '''
 NFL = NFL.replace(np.nan, 'unknown', regex=True)
 
 
-# In[8]:
+# In[9]:
 
 
 ''' Create column in DF for complete play type '''
 NFL['complete_play'] = NFL[['play_type', 'pass_length', 'pass_location', 'run_location', 'run_gap']].apply(get_play, axis=1)
 
 
-# In[9]:
+# In[10]:
 
 
 cp = NFL.groupby('complete_play').count()[['play_type']]
@@ -122,21 +123,21 @@ for i, row in cp.iterrows():
 # print(cp)
 
 
-# In[10]:
+# In[11]:
 
 
 NFL['complete_play'] = NFL['complete_play'].replace('', np.nan, regex=True)
 NFL.dropna(subset=['complete_play'], inplace=True)
 
 
-# In[11]:
+# In[12]:
 
 
 ''' Create column for successful plays '''
 NFL['play_success'] = NFL[['down', 'ydstogo', 'yards_gained']].apply(play_success, axis=1)
 
 
-# In[12]:
+# In[13]:
 
 
 ''' Labeling play types to numerical values
@@ -157,7 +158,7 @@ encoder = LabelEncoder()
 NFL['cp_label'] = encoder.fit_transform(NFL['complete_play'])
 
 
-# In[13]:
+# In[14]:
 
 
 '''Yardage to go is binned'''
@@ -172,43 +173,27 @@ def yardage_bin(y):
         return 3
 
 
-# In[14]:
+# In[23]:
 
 
 '''Score differential is binned
 The value equivalent to the number of possesions
 the posessing team is winning or losing by'''
-def score_diff_bin(x):
-    if x < 0:
-        if x <= -25:
-            return -4
-        elif (x > -25) & (x <= -17):
-            return -3
-        elif (x > -17) & (x <= -9):
-            return -2
-        elif x > -9:
-            return -1
-    elif x == 0:
+def score_diff_bin(x: int) -> int:
+    if x == 0:
         return 0
-    elif x > 0:
-        if x < 9:
-            return 1
-        elif (x >= 9) & (x < 17):
-            return 2
-        elif (x >= 17) & (x < 25):
-            return 3
-        elif x >= 25:
-            return 4
+    sign: int = abs(x) / x
+    return sign * min(ceil(abs(x) / 8),4)
 
 
-# In[15]:
+# In[24]:
 
 
 ''' Replace the ydstogo values with their bin numbers '''
 NFL['ytg_bin'] = [yardage_bin(x) for x in NFL['ydstogo']]
 
 
-# In[16]:
+# In[25]:
 
 
 ''' Replace score differential values with bin numbers'''
@@ -454,7 +439,7 @@ def train(train_loader, test_loader, model_name="Torch-Play-Success", save_dir="
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
-    scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
+    scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
     # If there is no save directory yet, make one
     if not os.path.exists(save_dir):
