@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[2]:
-
-
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
@@ -27,21 +21,12 @@ import os
 
 # # Read in data and preprocess it
 
-# In[3]:
-
-
 NFL = pd.read_csv(r"NFL Play by Play 2009-2018 (v5).csv", low_memory=False)
-
-
-# In[4]:
 
 
 ''' Filter rows '''
 NFL = NFL[(NFL.down.isin([1, 2, 3, 4])) & ((NFL.play_type == 'run') | (NFL.play_type == 'pass'))
           & (NFL.incomplete_pass == 0)]
-
-
-# In[5]:
 
 
 NFL = NFL[['game_id', 'posteam', 'posteam_type', 'defteam', 'game_seconds_remaining', 'yardline_100', 'down', 'ydstogo', 'yards_gained', 'score_differential',
@@ -50,9 +35,6 @@ NFL.dropna(subset=['yards_gained'], inplace=True)
 NFL.dropna(subset=['game_seconds_remaining'], inplace=True)
 NFL['game_seconds_remaining'] = NFL['game_seconds_remaining'].astype(int)
 NFL['yards_gained'] = NFL['yards_gained'].astype(int)
-
-
-# In[6]:
 
 
 def get_play(play):
@@ -65,9 +47,6 @@ def get_play(play):
             return "Run Middle"
         elif (run_location != 'unknown') & (run_gap != 'unknown'):
             return "Run " + run_location.capitalize() + " " + run_gap.capitalize()
-
-
-# In[7]:
 
 
 # Sit is situation
@@ -91,21 +70,14 @@ def play_success(sit):
             return 0
 
 
-# In[8]:
-
-
 ''' Turn unknown values into "unknown" '''
 NFL = NFL.replace(np.nan, 'unknown', regex=True)
 
-
-# In[9]:
 
 
 ''' Create column in DF for complete play type '''
 NFL['complete_play'] = NFL[['play_type', 'pass_length', 'pass_location', 'run_location', 'run_gap']].apply(get_play, axis=1)
 
-
-# In[10]:
 
 
 cp = NFL.groupby('complete_play').count()[['play_type']]
@@ -119,25 +91,14 @@ for x in cp['play_type']:
 ''' Turn each value into a percentage of the sum '''
 for i, row in cp.iterrows():
     cp.at[i, 'play_type'] *= 100 / total
-    
-# print(cp)
-
-
-# In[11]:
 
 
 NFL['complete_play'] = NFL['complete_play'].replace('', np.nan, regex=True)
 NFL.dropna(subset=['complete_play'], inplace=True)
 
 
-# In[12]:
-
-
 ''' Create column for successful plays '''
 NFL['play_success'] = NFL[['down', 'ydstogo', 'yards_gained']].apply(play_success, axis=1)
-
-
-# In[13]:
 
 
 ''' Labeling play types to numerical values
@@ -158,9 +119,6 @@ encoder = LabelEncoder()
 NFL['cp_label'] = encoder.fit_transform(NFL['complete_play'])
 
 
-# In[14]:
-
-
 '''Yardage to go is binned'''
 def yardage_bin(y):
     if y <= 5:
@@ -173,9 +131,6 @@ def yardage_bin(y):
         return 3
 
 
-# In[23]:
-
-
 '''Score differential is binned
 The value equivalent to the number of possesions
 the posessing team is winning or losing by'''
@@ -186,29 +141,17 @@ def score_diff_bin(x: int) -> int:
     return sign * min(ceil(abs(x) / 8),4)
 
 
-# In[24]:
-
-
 ''' Replace the ydstogo values with their bin numbers '''
 NFL['ytg_bin'] = [yardage_bin(x) for x in NFL['ydstogo']]
-
-
-# In[25]:
 
 
 ''' Replace score differential values with bin numbers'''
 NFL['score_diff_bin'] = [score_diff_bin(x) for x in NFL['score_differential']]
 
 
-# In[17]:
-
-
 ''' Make yardline_100 and game_seconds_remaining on a scale of 0 to 1 '''
 NFL['yardline_100'] /= 100
 NFL['game_seconds_remaining'] /= 3600
-
-
-# In[18]:
 
 
 ''' One hot encoding downs, ytg bins, cp_label, and score diff bins'''
@@ -221,9 +164,6 @@ one_hot_posteam_type = pd.get_dummies(NFL['posteam_type'], prefix = 'posteam_typ
 one_hot_defteam = pd.get_dummies(NFL['defteam'], prefix = 'defteam')
 
 
-# In[19]:
-
-
 ''' Add one hot values to DF '''
 NFL = pd.concat([NFL, one_hot_downs, one_hot_posteam,
                  one_hot_posteam_type, one_hot_defteam,
@@ -231,8 +171,6 @@ NFL = pd.concat([NFL, one_hot_downs, one_hot_posteam,
 
 
 # # Split the data up between input features, targets, and then train and test sets
-
-# In[20]:
 
 
 x = NFL[['game_seconds_remaining', 'yardline_100', 'down_1.0', 'down_2.0', 'down_3.0', 'down_4.0', 'ytg_bin_0',
@@ -256,13 +194,6 @@ y = NFL['play_success']
 train_x, test_x, train_y, test_y = train_test_split(x, y, shuffle=True, random_state=0)
 
 
-# In[ ]:
-
-
-
-
-
-# In[21]:
 
 
 def decision_tree():
@@ -274,8 +205,6 @@ def decision_tree():
     print("")
 
 
-# In[22]:
-
 
 def random_forest():
     RF = RandomForestClassifier(max_depth=10, n_estimators=25, random_state=1)
@@ -286,8 +215,6 @@ def random_forest():
     print("")
 
 
-# In[23]:
-
 
 def nearest_neighbor():
     knc = KNeighborsClassifier(n_neighbors=3)
@@ -297,8 +224,6 @@ def nearest_neighbor():
     print("Accuracy using k-Nearest Neighbors: " + str(knscore))
     print("")
 
-
-# In[24]:
 
 
 def neural_network():
@@ -311,8 +236,6 @@ def neural_network():
 
 # # PyTorch!
 
-# In[25]:
-
 
 # Hyper Parameters 
 input_size = 104
@@ -320,9 +243,6 @@ num_classes = 2
 num_epochs = 5
 learning_rate = 0.001
 batch_size = 64
-
-
-# In[26]:
 
 
 if torch.cuda.is_available():
@@ -335,7 +255,6 @@ else:
     print('CUDA is not available. Using CPU.')
 
 
-# In[27]:
 
 
 torch_NFL = NFL[['game_seconds_remaining', 'yardline_100', 'down_1.0', 'down_2.0', 'down_3.0', 'down_4.0', 'ytg_bin_0',
@@ -355,13 +274,7 @@ torch_NFL = NFL[['game_seconds_remaining', 'yardline_100', 'down_1.0', 'down_2.0
          'defteam_TB', 'defteam_TEN', 'defteam_WAS', 'play_success']]
 
 
-# In[28]:
-
-
 torch_train, torch_test = train_test_split(torch_NFL, test_size = 0.2, random_state = 42)
-
-
-# In[29]:
 
 
 class NFL_Data(Dataset):
@@ -393,21 +306,13 @@ class NFL_Data(Dataset):
         return features, target
 
 
-# In[30]:
-
 
 train_dataset = NFL_Data(torch_test)
 test_dataset = NFL_Data(torch_train)
 
 
-# In[31]:
-
-
 train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = True)
 test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle = False)
-
-
-# In[25]:
 
 
 class PlayPredictor(nn.Module):
@@ -430,8 +335,6 @@ class PlayPredictor(nn.Module):
         x = self.linear5(x)
         return x
 
-
-# In[26]:
 
 
 def train(train_loader, test_loader, model_name="Torch-Play-Success", save_dir="model"):
@@ -497,8 +400,6 @@ def train(train_loader, test_loader, model_name="Torch-Play-Success", save_dir="
         scheduler.step()
 
 
-# In[27]:
-
 
 def test(model=None, test_image=None, test_loader=None, loss_func=None):
     correct = 0
@@ -534,15 +435,11 @@ def test(model=None, test_image=None, test_loader=None, loss_func=None):
         return accuracy, test_loss
 
 
-# In[41]:
-
 
 def save_highest_accuracy(accuracy):
     with open("highest_accuracy.txt", "w") as f:
         f.write(str(accuracy))
 
-
-# In[42]:
 
 
 def save_model(model, model_name, accuracy):
@@ -562,9 +459,6 @@ def save_model(model, model_name, accuracy):
         torch.save(model.state_dict(), file_path)
 
 
-# In[43]:
-
-
 def load_highest_accuracy():
     if os.path.exists("highest_accuracy.txt"):
         with open("highest_accuracy.txt", "r") as f:
@@ -573,19 +467,6 @@ def load_highest_accuracy():
         return 0.0  # Default to 0.0 if the file doesn't exist
 
 
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
 
 
 
